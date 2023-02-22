@@ -74,7 +74,7 @@ for i in {0..60}; do
   fi
   cd $NYUSH_GRADING
   preprocess
-  $(timeout --signal=SIGKILL 2 bash -c "cat ../inputs/input$i | env LD_PRELOAD=$NYUSH_GRADING/libnosystem.so ./nyush > ../myoutputs/output$i 2> ../myoutputs/erroroutput$i")
+  $(timeout 2 bash -c "cat ../inputs/input$i | env LD_PRELOAD=$NYUSH_GRADING/libnosystem.so ./nyush > ../myoutputs/output$i 2> ../myoutputs/erroroutput$i")
   status=$?
   cd ..
   if [ $status -eq 255 ]; then

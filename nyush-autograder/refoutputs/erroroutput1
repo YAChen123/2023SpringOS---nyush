@@ -1,2 +1,2 @@
-ls: invalid option -- 'z'
-Try 'ls --help' for more information.
+/bin/ls: invalid option -- 'z'
+Try '/bin/ls --help' for more information.

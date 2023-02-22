@@ -44,14 +44,13 @@ char *get_command(){
     size_t command_size = 0; 
     getline(&command, &command_size, stdin);
 
-    
     if(strcmp(command,"\n") == 0){
         return command;
     }
      
     // Remove potential end-of-line character(s)
     command[strcspn(command, "\n")] = 0;
-    
+
     return command;
 }
 
@@ -60,7 +59,6 @@ char *get_command(){
 struct CommandLineArg get_command_args(){
 
     char *command = get_command();
-
     // init argc and argv
     char **argv = NULL;
     int argc = 0;
@@ -174,8 +172,8 @@ int locate_program(int argc, char **argv){
         char *newPath = malloc(strlen("/bin/") + strlen(argv[0]) + 1);
         strcpy(newPath,"/bin/");
         strcat(newPath, argv[0]);
-        argv[0] = realloc(argv[0], strlen(newPath)+1);
-        strcpy(argv[0],newPath);
+        //argv[0] = realloc(argv[0], strlen(newPath)+1);
+        //strcpy(argv[0],newPath);
         load_program(newPath,argc,argv);
         free(newPath);
     }
@@ -184,15 +182,18 @@ int locate_program(int argc, char **argv){
 
 }
 
-// implement signal handling
-// void signal_handler(){
-//     interrupt_flag = 1;
-//     return;
-// }
+//implement signal handling
+void signal_handler(){
+    interrupt_flag = 1;
+    return;
+}
 
 int shell(){
+
+    // set it to unbuffer, cuz there is memcheck with printf
+    setvbuf(stdout, NULL, _IONBF, 0);
     
-    //signal(SIGINT, signal_handler);
+    signal(SIGINT, signal_handler);
     int go = 10;
     while(go > 1){
         // milestone 1 - print the prompt
@@ -200,7 +201,6 @@ int shell(){
         printf("[nyush %s]$ ", basename);
         fflush(stdout);
         
-
 
         // milestone 2 - get users input
         struct CommandLineArg commandArg = get_command_args();
