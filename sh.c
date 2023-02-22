@@ -5,6 +5,7 @@
 #include <string.h>
 #include <signal.h>
 #include <sys/wait.h>
+#include <fcntl.h>
 
 #include "sh.h"
 
@@ -131,11 +132,53 @@ int my_exit(int argc){
 }
 
 int load_program(char *path, int argc, char **argv){
+    // create child process
     int pid = fork();
     int status;
     if(pid < 0){
         perror("fork() error");
     }else if(pid == 0){
+
+        // handle redirection
+        int redirect_input = 0;
+        int redirect_output = 0;
+        char *input_file = NULL;
+        char *output_file = NULL;
+
+        for(int i = 1; i < argc && argv[i] != NULL; i++){
+            if(strcmp(argv[i], "<") == 0){
+                redirect_input = 1;
+                input_file = argv[i+1];
+                argv[i] = NULL;
+                argv[i+1] = NULL;
+            } else if(strcmp(argv[i], ">") == 0){
+                redirect_output = 1;
+                output_file = argv[i+1];
+                argv[i] = NULL;
+                argv[i+1] = NULL;
+            } else if(strcmp(argv[i], ">>") == 0){
+                redirect_output = 2;
+                output_file = argv[i+1];
+                argv[i] = NULL;
+                argv[i+1] = NULL;
+            }
+        }
+        // handle input redirection 
+        if(redirect_input){
+            int fd = open(input_file, O_RDONLY);
+            if(fd < 0){ // If open fail, the file does not exist 
+                fprintf(stderr, "Error: invalid file\n");
+                free(path);
+                free_argv(argc,argv);
+                free(input_file);
+                kill(getpid(), SIGKILL);
+            }
+            // STDIN = STDIN_FILENO = 0
+            dup2(fd, STDIN_FILENO);
+            close(fd);
+            free(input_file);
+        }
+
         execv(path,argv);
         fprintf(stderr, "Error: invalid program\n");
         free(path);
@@ -145,6 +188,7 @@ int load_program(char *path, int argc, char **argv){
     else{
         waitpid(pid, &status, 0);
     }
+
     return 0;
 }
 
