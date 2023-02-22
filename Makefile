@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-g -pedantic -std=gnu17 -Wall -Werror -Wextra
+CFLAGS=-g -pedantic -std=gnu17 -Wall -Werror -Wextra -Wno-unused
 
 .PHONY: all
 all: clean nyush
