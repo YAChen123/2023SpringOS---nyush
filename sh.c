@@ -172,8 +172,6 @@ int locate_program(int argc, char **argv){
         char *newPath = malloc(strlen("/bin/") + strlen(argv[0]) + 1);
         strcpy(newPath,"/bin/");
         strcat(newPath, argv[0]);
-        //argv[0] = realloc(argv[0], strlen(newPath)+1);
-        //strcpy(argv[0],newPath);
         load_program(newPath,argc,argv);
         free(newPath);
     }
