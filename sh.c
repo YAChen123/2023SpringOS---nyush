@@ -6,15 +6,24 @@
 #include <signal.h>
 #include <sys/wait.h>
 #include <fcntl.h>
-
 #include "sh.h"
 
-int interrupt_flag = 0;
+#define MAX_JOBS 100
 
 struct CommandLineArg{
     int argc;
     char **argv;
 };
+
+struct JobsObj{
+    pid_t pid;
+    char* job_command;
+};
+
+int interrupt_flag = 0;
+
+struct JobsObj jobs_list[MAX_JOBS];
+int num_jobs = 0;
 
 // print the basename of the full current path
 char *print_basename(){
@@ -205,7 +214,13 @@ int load_program(char *path, int argc, char **argv){
     kill(getpid(), SIGKILL);
     }
     else{
-        waitpid(pid, &status, 0);
+        // add WUNTRACED in order to support suspended jobs
+        waitpid(pid, &status, WUNTRACED);
+
+        // the returned status with WIFSTOPPED()
+        if(WIFSTOPPED(status)){     //If true, add the job to the list of suspended jobs. 
+            // add_jobs here
+        }
     }
 
     return 0;
@@ -243,9 +258,25 @@ int locate_program(int argc, char **argv){
 
 }
 
+
+int my_jobs(int argc, char **argv){
+    // The jobs command takes no arguments.
+    if(argc != 1){
+        fprintf(stderr, "Error: invalid command\n");
+    }
+
+    return 0;
+
+}
+
+int add_job(pid_t pid, char* job_command){
+
+}
+
 //implement signal handling
-void signal_handler(){
+void signal_handler(int signal){
     interrupt_flag = 1;
+    printf("this is the signal numbber:%d\n", signal);
     return;
 }
 

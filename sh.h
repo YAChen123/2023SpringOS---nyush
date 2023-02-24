@@ -11,6 +11,7 @@ int free_argv(int argc, char **argv);
 int my_cd(int argc, char **argv);
 int my_exit(int argc);
 int locate_program(int argc, char **argv);
-void signal_handler();
+int my_jobs(int argc, char **argv);
+void signal_handler(int signal);
 
 #endif
