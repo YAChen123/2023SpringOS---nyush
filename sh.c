@@ -13,6 +13,7 @@
 struct CommandLineArg{
     int argc;
     char **argv;
+    char *command;
 };
 
 struct JobsObj{
@@ -54,13 +55,6 @@ char *get_command(){
     size_t command_size = 0; 
     getline(&command, &command_size, stdin);
 
-    if(strcmp(command,"\n") == 0){
-        return command;
-    }
-     
-    // Remove potential end-of-line character(s)
-    command[strcspn(command, "\n")] = 0;
-
     return command;
 }
 
@@ -69,11 +63,16 @@ char *get_command(){
 struct CommandLineArg get_command_args(){
 
     char *command = get_command();
+
     // init argc and argv
     char **argv = NULL;
     int argc = 0;
+    char *original_command = strdup(command);
 
     if(strcmp(command,"\n") != 0){
+
+        // Remove potential end-of-line character(s)
+        command[strcspn(command, "\n")] = 0;
 
         // command line parser
         char *token = strtok(command, " ");
@@ -101,6 +100,7 @@ struct CommandLineArg get_command_args(){
     struct CommandLineArg cla;
     cla.argc = argc;
     cla.argv = argv;
+    cla.command = original_command;
 
     return cla;
 }
@@ -140,7 +140,7 @@ int my_exit(int argc){
     return 0;
 }
 
-int load_program(char *path, int argc, char **argv){
+int load_program(char *path, int argc, char **argv, char *full_command){
 
     // create child process
     int pid = fork();
@@ -219,6 +219,7 @@ int load_program(char *path, int argc, char **argv){
 
         // the returned status with WIFSTOPPED()
         if(WIFSTOPPED(status)){     //If true, add the job to the list of suspended jobs. 
+            printf("hehe full command is here %s\n", full_command);
             // add_jobs here
         }
     }
@@ -226,7 +227,7 @@ int load_program(char *path, int argc, char **argv){
     return 0;
 }
 
-int locate_program(int argc, char **argv){
+int locate_program(int argc, char **argv, char *full_command){
     // calculate the number of slash
     int slash_count = 0;
     int str_len = strlen(argv[0]);
@@ -239,18 +240,18 @@ int locate_program(int argc, char **argv){
 
     // absolute path start with /
     if(argv[0][0] == '/'){
-        load_program(argv[0],argc,argv);
+        load_program(argv[0],argc,argv,full_command);
     }
     // relative path contains but not begin with /
     else if(slash_count > 0){
-        load_program(argv[0],argc,argv);
+        load_program(argv[0],argc,argv,full_command);
     }
     // only the base name, run with /usr/bin
     else{
         char *newPath = malloc(strlen("/bin/") + strlen(argv[0]) + 1);
         strcpy(newPath,"/bin/");
         strcat(newPath, argv[0]);
-        load_program(newPath,argc,argv);
+        load_program(newPath,argc,argv,full_command);
         free(newPath);
     }
 
@@ -259,19 +260,19 @@ int locate_program(int argc, char **argv){
 }
 
 
-int my_jobs(int argc, char **argv){
-    // The jobs command takes no arguments.
-    if(argc != 1){
-        fprintf(stderr, "Error: invalid command\n");
-    }
+// int my_jobs(int argc, char **argv){
+//     // The jobs command takes no arguments.
+//     if(argc != 1){
+//         fprintf(stderr, "Error: invalid command\n");
+//     }
 
-    return 0;
+//     return 0;
 
-}
+// }
 
-int add_job(pid_t pid, char* job_command){
+// int add_job(pid_t pid, char* job_command){
 
-}
+// }
 
 //implement signal handling
 void signal_handler(int signal){
@@ -300,6 +301,7 @@ int shell(){
         struct CommandLineArg commandArg = get_command_args();
         int argc = commandArg.argc;
         char **argv = commandArg.argv;
+        char *full_command = commandArg.command;
  
         // free variable
         free(basename);
@@ -318,7 +320,7 @@ int shell(){
             }else{
                 //milestone 3 - ls
                 //milestone 4
-                locate_program(argc,argv);
+                locate_program(argc,argv,full_command);
             }
 
 
@@ -326,6 +328,8 @@ int shell(){
             // free variable
             free_argv(argc,argv);
         }
+
+        free(full_command);
 
         go--;
 
