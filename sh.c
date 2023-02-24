@@ -255,6 +255,8 @@ int shell(){
     setvbuf(stdout, NULL, _IONBF, 0);
     
     signal(SIGINT, signal_handler);
+    signal(SIGQUIT, signal_handler);
+    signal(SIGTSTP, signal_handler);
     int go = 30;
     while(go > 1){
         // milestone 1 - print the prompt
