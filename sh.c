@@ -292,7 +292,6 @@ void print_jobs(){
 //implement signal handling
 void signal_handler(int signal){
     interrupt_flag = 1;
-    printf("this is the signal numbber:%d\n", signal);
     return;
 }
 

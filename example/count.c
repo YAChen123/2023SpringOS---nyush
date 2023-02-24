@@ -2,8 +2,8 @@
 #include <unistd.h>
 
 int main(){
-    int go = 0;
-    while(go < 100){
+    int go = 1;
+    while(go){
         printf("%d\n",go);
         sleep(1);
         go++;
