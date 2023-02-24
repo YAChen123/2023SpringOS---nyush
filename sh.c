@@ -181,13 +181,21 @@ int load_program(char *path, int argc, char **argv, char *full_command){
     }
     // handle input redirection 
     if(redirect_input){
+
+        // if there is no input file
+        if(input_file == NULL){
+            fprintf(stderr, "Error: invalid command\n");
+            free(path);
+            free_argv(argc,argv);
+            exit(0);
+        }
         int fd = open(input_file, O_RDONLY);
         if(fd < 0){ // If open fail, the file does not exist 
             fprintf(stderr, "Error: invalid file\n");
             free(path);
             free_argv(argc,argv);
             free(input_file);
-            kill(getpid(), SIGKILL);
+            exit(0);
         }
         // STDIN = STDIN_FILENO = 0
         dup2(fd, STDIN_FILENO);
@@ -197,6 +205,13 @@ int load_program(char *path, int argc, char **argv, char *full_command){
 
     // handle output redirection
     if(redirect_output){
+        // if there is no output file
+        if(output_file == NULL){
+            fprintf(stderr, "Error: invalid command\n");
+            free(path);
+            free_argv(argc,argv);
+            exit(0);
+        }
         int fd;
         if(redirect_output == 1){
             // S_IRWXU = (S_IRUSR | S_IWUSR | S_IXUSR)
@@ -213,9 +228,8 @@ int load_program(char *path, int argc, char **argv, char *full_command){
 
     execv(path,argv);
     fprintf(stderr, "Error: invalid program\n");
-    //free(path);
     free_argv(argc,argv);
-    kill(getpid(), SIGKILL);
+    exit(0);
     }
     else{
         // add WUNTRACED in order to support suspended jobs
