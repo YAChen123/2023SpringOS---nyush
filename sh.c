@@ -224,7 +224,6 @@ int load_program(char *path, int argc, char **argv, char *full_command){
         // the returned status with WIFSTOPPED()
         if(WIFSTOPPED(status)){     //If true, add the job to the list of suspended jobs. 
             add_job(pid, full_command);
-            // add_jobs here
         }
     }
 
@@ -283,14 +282,61 @@ void add_job(pid_t pid, char* full_command){
     }
 }
 
+void remove_job(int index){
+    if(index < 0 || index >= num_jobs ){
+        return;
+    }
+    free(jobs_list[index].job_command);
+    for(int i = index; i<num_jobs;i++){
+        jobs_list[i] = jobs_list[i+1];
+    }
+    num_jobs--;
+}
+
+int my_fg(int argc, int index){
+    // If fg is called with 0 or 2+ arguments
+    if(argc != 2){
+        fprintf(stderr, "Error: invalid command\n");
+        return 1;
+    }
+
+    // If job index does not exist in the list of currently suspended jobs
+    if(index < 0 || index >= num_jobs){
+        fprintf(stderr, "Error: invalid job\n");
+        return 1;
+    }
+    
+    int status;
+    char *job_command = strdup(jobs_list[index].job_command);
+    int job_pid = jobs_list[index].pid;
+
+    // Sending signal to continue the suspended job
+    kill(job_pid, SIGCONT);
+
+    // add WUNTRACED to trace if job finished or not
+    waitpid(job_pid, &status,WUNTRACED);
+
+    // remove the job from the job_list
+    remove_job(index);
+
+    // check the returned status with WIFSTOPPED()
+    if(WIFSTOPPED(status)){     //If true, add the job back to the list of suspended jobs. 
+        add_job(job_pid, job_command);
+    }
+
+    free(job_command);
+
+    return 0;
+}
+
 void print_jobs(){
     for(int i = 0; i < num_jobs; i++){
-        printf("[%d] %s\n", i+1, jobs_list[i].job_command);
+        printf("[%d] %s", i+1, jobs_list[i].job_command);
     }
 }
 
 //implement signal handling
-void signal_handler(int signal){
+void signal_handler(){
     interrupt_flag = 1;
     return;
 }
@@ -333,6 +379,9 @@ int shell(){
                 }
             }else if(strcmp(argv[0],"jobs") == 0){
                 my_jobs(argc);
+            }else if(strcmp(argv[0],"fg") == 0){
+                my_fg(argc, (int) atoi(argv[1])-1);   // -1 because we pass the index
+            
             }else{
                 //milestone 3 - ls
                 //milestone 4

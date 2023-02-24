@@ -15,7 +15,9 @@ int my_exit(int argc);
 int locate_program(int argc, char **argv, char *full_command);
 int my_jobs(int argc);
 void add_job(pid_t pid, char* full_command);
+void remove_job(int index);
+int my_fg(int argc, int index);
 void print_jobs();
-void signal_handler(int signal);
+void signal_handler();
 
 #endif
