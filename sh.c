@@ -6,15 +6,25 @@
 #include <signal.h>
 #include <sys/wait.h>
 #include <fcntl.h>
-
 #include "sh.h"
 
-int interrupt_flag = 0;
+#define MAX_JOBS 100
 
 struct CommandLineArg{
     int argc;
     char **argv;
+    char *command;
 };
+
+struct JobsObj{
+    pid_t pid;
+    char* job_command;
+};
+
+int interrupt_flag = 0;
+
+struct JobsObj jobs_list[MAX_JOBS];
+int num_jobs = 0;
 
 // print the basename of the full current path
 char *print_basename(){
@@ -45,13 +55,6 @@ char *get_command(){
     size_t command_size = 0; 
     getline(&command, &command_size, stdin);
 
-    if(strcmp(command,"\n") == 0){
-        return command;
-    }
-     
-    // Remove potential end-of-line character(s)
-    command[strcspn(command, "\n")] = 0;
-
     return command;
 }
 
@@ -60,11 +63,16 @@ char *get_command(){
 struct CommandLineArg get_command_args(){
 
     char *command = get_command();
+
     // init argc and argv
     char **argv = NULL;
     int argc = 0;
+    char *original_command = strdup(command);
 
     if(strcmp(command,"\n") != 0){
+
+        // Remove potential end-of-line character(s)
+        command[strcspn(command, "\n")] = 0;
 
         // command line parser
         char *token = strtok(command, " ");
@@ -92,6 +100,7 @@ struct CommandLineArg get_command_args(){
     struct CommandLineArg cla;
     cla.argc = argc;
     cla.argv = argv;
+    cla.command = original_command;
 
     return cla;
 }
@@ -127,11 +136,15 @@ int my_exit(int argc){
         fprintf(stderr, "Error: invalid command\n");
         return 1;
     }
+    if(num_jobs != 0){
+        fprintf(stderr, "Error: there are suspended jobs\n");
+        return 1;
+    }
 
     return 0;
 }
 
-int load_program(char *path, int argc, char **argv){
+int load_program(char *path, int argc, char **argv, char *full_command){
 
     // create child process
     int pid = fork();
@@ -205,13 +218,19 @@ int load_program(char *path, int argc, char **argv){
     kill(getpid(), SIGKILL);
     }
     else{
-        waitpid(pid, &status, 0);
+        // add WUNTRACED in order to support suspended jobs
+        waitpid(pid, &status, WUNTRACED);
+
+        // the returned status with WIFSTOPPED()
+        if(WIFSTOPPED(status)){     //If true, add the job to the list of suspended jobs. 
+            add_job(pid, full_command);
+        }
     }
 
     return 0;
 }
 
-int locate_program(int argc, char **argv){
+int locate_program(int argc, char **argv, char *full_command){
     // calculate the number of slash
     int slash_count = 0;
     int str_len = strlen(argv[0]);
@@ -224,23 +243,96 @@ int locate_program(int argc, char **argv){
 
     // absolute path start with /
     if(argv[0][0] == '/'){
-        load_program(argv[0],argc,argv);
+        load_program(argv[0],argc,argv,full_command);
     }
     // relative path contains but not begin with /
     else if(slash_count > 0){
-        load_program(argv[0],argc,argv);
+        load_program(argv[0],argc,argv,full_command);
     }
     // only the base name, run with /usr/bin
     else{
         char *newPath = malloc(strlen("/bin/") + strlen(argv[0]) + 1);
         strcpy(newPath,"/bin/");
         strcat(newPath, argv[0]);
-        load_program(newPath,argc,argv);
+        load_program(newPath,argc,argv,full_command);
         free(newPath);
     }
 
     return 0;
 
+}
+
+
+int my_jobs(int argc){
+    // The jobs command takes no arguments.
+    if(argc != 1){
+        fprintf(stderr, "Error: invalid command\n");
+    }
+    print_jobs();
+
+    return 0;
+
+}
+
+void add_job(pid_t pid, char* full_command){
+    if(num_jobs < MAX_JOBS){
+        jobs_list[num_jobs].pid = pid;
+        jobs_list[num_jobs].job_command = strdup(full_command);
+        num_jobs++;
+    }
+}
+
+void remove_job(int index){
+    if(index < 0 || index >= num_jobs ){
+        return;
+    }
+    free(jobs_list[index].job_command);
+    for(int i = index; i<num_jobs;i++){
+        jobs_list[i] = jobs_list[i+1];
+    }
+    num_jobs--;
+}
+
+int my_fg(int argc, int index){
+    // If fg is called with 0 or 2+ arguments
+    if(argc != 2){
+        fprintf(stderr, "Error: invalid command\n");
+        return 1;
+    }
+
+    // If job index does not exist in the list of currently suspended jobs
+    if(index < 0 || index >= num_jobs){
+        fprintf(stderr, "Error: invalid job\n");
+        return 1;
+    }
+    
+    int status;
+    char *job_command = strdup(jobs_list[index].job_command);
+    int job_pid = jobs_list[index].pid;
+
+    // Sending signal to continue the suspended job
+    kill(job_pid, SIGCONT);
+
+    // add WUNTRACED to trace if job finished or not
+    waitpid(job_pid, &status,WUNTRACED);
+
+    // remove the job from the job_list
+    remove_job(index);
+
+    // check the returned status with WIFSTOPPED()
+    if(WIFSTOPPED(status)){     //If true, add the job back to the list of suspended jobs. 
+        add_job(job_pid, job_command);
+    }
+
+    free(job_command);
+
+    return 0;
+}
+
+void print_jobs(){
+    for(int i = 0; i < num_jobs; i++){
+        printf("[%d] %s", i+1, jobs_list[i].job_command);
+    }
 }
 
 //implement signal handling
@@ -269,6 +361,7 @@ int shell(){
         struct CommandLineArg commandArg = get_command_args();
         int argc = commandArg.argc;
         char **argv = commandArg.argv;
+        char *full_command = commandArg.command;
  
         // free variable
         free(basename);
@@ -284,10 +377,15 @@ int shell(){
                     // this will break
                     go = -1;
                 }
+            }else if(strcmp(argv[0],"jobs") == 0){
+                my_jobs(argc);
+            }else if(strcmp(argv[0],"fg") == 0){
+                my_fg(argc, (int) atoi(argv[1])-1);   // -1 because we pass the index
+            
             }else{
                 //milestone 3 - ls
                 //milestone 4
-                locate_program(argc,argv);
+                locate_program(argc,argv,full_command);
             }
 
 
@@ -295,6 +393,8 @@ int shell(){
             // free variable
             free_argv(argc,argv);
         }
+
+        free(full_command);
 
         go--;
 
