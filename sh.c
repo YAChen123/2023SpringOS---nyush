@@ -213,7 +213,7 @@ int load_program(char *path, int argc, char **argv, char *full_command){
 
     execv(path,argv);
     fprintf(stderr, "Error: invalid program\n");
-    free(path);
+    //free(path);
     free_argv(argc,argv);
     kill(getpid(), SIGKILL);
     }
