@@ -136,6 +136,10 @@ int my_exit(int argc){
         fprintf(stderr, "Error: invalid command\n");
         return 1;
     }
+    if(num_jobs != 0){
+        fprintf(stderr, "Error: there are suspended jobs\n");
+        return 1;
+    }
 
     return 0;
 }
