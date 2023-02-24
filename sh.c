@@ -219,7 +219,7 @@ int load_program(char *path, int argc, char **argv, char *full_command){
 
         // the returned status with WIFSTOPPED()
         if(WIFSTOPPED(status)){     //If true, add the job to the list of suspended jobs. 
-            printf("hehe full command is here %s\n", full_command);
+            add_job(pid, full_command);
             // add_jobs here
         }
     }
@@ -260,19 +260,30 @@ int locate_program(int argc, char **argv, char *full_command){
 }
 
 
-// int my_jobs(int argc, char **argv){
-//     // The jobs command takes no arguments.
-//     if(argc != 1){
-//         fprintf(stderr, "Error: invalid command\n");
-//     }
+int my_jobs(int argc){
+    // The jobs command takes no arguments.
+    if(argc != 1){
+        fprintf(stderr, "Error: invalid command\n");
+    }
+    print_jobs();
 
-//     return 0;
+    return 0;
 
-// }
+}
 
-// int add_job(pid_t pid, char* job_command){
+void add_job(pid_t pid, char* full_command){
+    if(num_jobs < MAX_JOBS){
+        jobs_list[num_jobs].pid = pid;
+        jobs_list[num_jobs].job_command = strdup(full_command);
+        num_jobs++;
+    }
+}
 
-// }
+void print_jobs(){
+    for(int i = 0; i < num_jobs; i++){
+        printf("[%d] %s\n", i+1, jobs_list[i].job_command);
+    }
+}
 
 //implement signal handling
 void signal_handler(int signal){
@@ -317,6 +328,8 @@ int shell(){
                     // this will break
                     go = -1;
                 }
+            }else if(strcmp(argv[0],"jobs") == 0){
+                my_jobs(argc);
             }else{
                 //milestone 3 - ls
                 //milestone 4
