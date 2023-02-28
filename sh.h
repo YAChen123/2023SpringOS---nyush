@@ -9,6 +9,7 @@ char *print_basename();
 char *get_command();
 struct CommandLineArg get_command_args();
 int load_program(char *path, int argc, char **argv, char *full_command);
+int check_pipe(int argc, char **argv, char *full_command);
 int free_argv(int argc, char **argv);
 int my_cd(int argc, char **argv);
 int my_exit(int argc);

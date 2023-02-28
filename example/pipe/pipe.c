@@ -19,7 +19,7 @@ int main(int argc, char* argv[]) {
         dup2(fd[1], STDOUT_FILENO);
         close(fd[0]);
         close(fd[1]);
-        execlp(argv[0], "ping" , "-c", "1", "google.com", NULL);
+        execlp("ls", "ls", NULL);
     }
 
     int pid2 = fork();
@@ -32,7 +32,7 @@ int main(int argc, char* argv[]) {
         dup2(fd[0], STDIN_FILENO);
         close(fd[0]);
         close(fd[1]);
-        execlp("grep", "grep" , "round-trip", NULL);
+        execlp("wc", "wc", NULL);
     }
 
     close(fd[0]);
@@ -40,6 +40,7 @@ int main(int argc, char* argv[]) {
 
     waitpid(pid1,NULL,0);
     waitpid(pid2,NULL,0);
+    printf("hello from pid: %d\n", getpid());
 
     return 0;
 }
