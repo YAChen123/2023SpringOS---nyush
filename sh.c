@@ -81,7 +81,7 @@ struct CommandLineArg get_command_args(){
             argv = realloc(argv, (argc+2) * sizeof(char*));
 
             int token_length = strlen(token);
-            argv[argc] = (char *) malloc(token_length+1 * sizeof(char));
+            argv[argc] = (char *) malloc((token_length+1) * sizeof(char));
             strncpy(argv[argc], token, token_length);
 
             argv[argc][token_length] = '\0';
@@ -244,6 +244,127 @@ int load_program(char *path, int argc, char **argv, char *full_command){
     return 0;
 }
 
+int check_pipe(int argc, char **argv, char *full_command){
+    // check if pipe exist
+    int num_commands = 0;
+    char **commands = NULL; 
+    char *pipeline = strdup(full_command);
+
+    // split pipeline into separate commands
+    char *token = strtok(pipeline, "|");
+    while (token != NULL) {
+        commands = realloc(commands, (num_commands+2) * sizeof(char*));
+        int token_length = strlen(token);
+        commands[num_commands] = (char *) malloc((token_length+1) * sizeof(char));
+        strncpy(commands[num_commands], token, token_length);
+        commands[num_commands][token_length] = '\0';
+        num_commands++;
+        commands[num_commands] = NULL;
+        token = strtok(NULL, "|");
+    }
+
+    if(num_commands == 1){      // no pipe exist
+        locate_program(argc,argv,full_command);
+    }
+    
+    else{                      // pipe exist
+        // create pipes
+        int pipe_fds[num_commands-1][2];
+        for(int i =0; i < num_commands-1; i++){
+            if(pipe(pipe_fds[i]) == -1){
+                perror("pipe");
+                // free variable
+                free(pipeline);
+                free_argv(num_commands,commands);
+                return -1;
+            }
+        }
+        // load_program in each command
+        for(int i =0; i<num_commands; i++){
+            // Remove potential end-of-line character(s)
+            commands[i][strcspn(commands[i], "\n")] = 0;
+
+            //set up new_argc and new_argv
+            char **new_argv = NULL;
+            int new_argc = 0;
+            char *each_full_command = strdup(commands[i]);
+
+            // command line parser
+            char *new_token = strtok(each_full_command, " ");
+            while(new_token != NULL){
+                // use realloc since we dont know the argument size yet
+                new_argv = realloc(new_argv, (new_argc+2) * sizeof(char*));
+
+                int new_token_length = strlen(new_token);
+                new_argv[new_argc] = (char *) malloc((new_token_length+1) * sizeof(char));
+                strncpy(new_argv[new_argc], new_token, new_token_length);
+
+                new_argv[new_argc][new_token_length] = '\0';
+                new_argc++;
+                new_token = strtok(NULL, " ");
+            }
+            if(new_argc > 0){
+                new_argv[new_argc] = NULL;
+            }
+
+            int pid_child = fork();
+            if(pid_child == -1){
+                perror("fork");
+                free(each_full_command);
+                free_argv(new_argc, new_argv);
+                free(pipeline);
+                free_argv(num_commands,commands);
+                return -1;
+            } else if(pid_child == 0){
+                // set up stdin
+                if(i > 0){
+                    dup2(pipe_fds[i-1][0], STDIN_FILENO);
+                }
+                // set up stdin
+                if(i < num_commands -1){
+                    dup2(pipe_fds[i][1], STDOUT_FILENO);
+                }
+                for(int i = 0; i<num_commands-1;i++){
+                    close(pipe_fds[i][0]);
+                    close(pipe_fds[i][1]);
+                }
+                locate_program(new_argc,new_argv,commands[i]);
+                free(each_full_command);
+                free_argv(new_argc, new_argv);
+                free(pipeline);
+                free_argv(num_commands,commands);
+                exit(0);
+            }else{
+                free(each_full_command);
+                free_argv(new_argc, new_argv);
+                //int status;
+                //waitpid(pid_child, &status, 0);
+            }
+        }
+
+        // close all pipe_fds
+        for(int i = 0; i<num_commands-1;i++){
+            close(pipe_fds[i][0]);
+            close(pipe_fds[i][1]);
+        }
+
+        // wait for child processes to finish
+        
+        int status;
+        for(int i = 0; i< num_commands;i++){
+            wait(&status);
+        } 
+
+    }
+    
+    // free variable
+    free(pipeline);
+    free_argv(num_commands,commands);
+
+    return 0;
+
+}
+
 int locate_program(int argc, char **argv, char *full_command){
     // calculate the number of slash
     int slash_count = 0;
@@ -253,6 +374,17 @@ int locate_program(int argc, char **argv, char *full_command){
             slash_count++;
         }
         str_len--;
+    }
+
+    // see if there is pipe passing by
+    int pipe_count = 0;
+    int pipe_len = strlen(full_command);
+    while(pipe_len > 0){
+        if(full_command[pipe_len-1] == '|'){
+            fprintf(stderr, "Error: invalid command\n");
+            return 1;
+        }
+        pipe_len--;
     }
 
     // absolute path start with /
@@ -399,7 +531,7 @@ int shell(){
             }else{
                 //milestone 3 - ls
                 //milestone 4
-                locate_program(argc,argv,full_command);
+                check_pipe(argc,argv,full_command); // check_pipe then locate_program
             }
 
 
