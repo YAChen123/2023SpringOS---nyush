@@ -495,7 +495,7 @@ int shell(){
     signal(SIGINT, signal_handler);
     signal(SIGQUIT, signal_handler);
     signal(SIGTSTP, signal_handler);
-    int go = 30;
+    int go = 100;
     while(go > 1){
         // milestone 1 - print the prompt
         char *basename = print_basename();
@@ -534,17 +534,12 @@ int shell(){
                 check_pipe(argc,argv,full_command); // check_pipe then locate_program
             }
 
-
-
             // free variable
             free_argv(argc,argv);
         }
 
         free(full_command);
-
         go--;
-
-
     }
     return 0;
 }
