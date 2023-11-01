@@ -1,4 +1,4 @@
-# 2023Spring Operating Systems --- Lab 2: Shell
+# 2023 Spring Operating Systems --- Lab 2: Shell
 
 ## Introduction
 The **shell** is the main command-line interface between a user and the operating system, and it is an essential part of the daily lives of computer scientists, software engineers, system administrators, and such. 
